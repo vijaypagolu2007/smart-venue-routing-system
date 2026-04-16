@@ -67,3 +67,16 @@ node_modules/
 
 # dataconnect generated files
 .dataconnect
+
+# AI / temp junk
+.agents/
+.claude/
+.kiro/
+scratch/
+
+# Frontend dependencies
+svos-ui/node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -1,22 +1,22 @@
 {
   "zones": {
-    "ENTRANCE":     { "name": "Main Entrance",      "capacity": 500, "type": "entry",   "pos": { "x": "10%", "y": "50%" }, "neighbors": ["CONCOURSE", "FOODCOURTA", "FOODCOURTB"] },
-    "CONCOURSE":    { "name": "Main Concourse",     "capacity": 400, "type": "path",    "pos": { "x": "28%", "y": "20%" }, "neighbors": ["ENTRANCE", "NORTHTERRACE", "FOODCOURTA"] },
-    "FOODCOURTA":   { "name": "Food Court A",       "capacity": 300, "type": "service", "pos": { "x": "28%", "y": "50%" }, "neighbors": ["ENTRANCE", "CONCOURSE", "FOODCOURTB", "VIPLOUNGE"] },
-    "FOODCOURTB":   { "name": "Food Court B",       "capacity": 300, "type": "service", "pos": { "x": "46%", "y": "80%" }, "neighbors": ["ENTRANCE", "FOODCOURTA", "RESTROOMWEST", "VIPLOUNGE"] },
-    "NORTHTERRACE": { "name": "The Pavilion",       "capacity": 600, "type": "path",    "pos": { "x": "46%", "y": "20%" }, "neighbors": ["CONCOURSE", "VIPLOUNGE", "RESTROOMEAST"] },
-    "RESTROOMWEST": { "name": "Restrooms West",     "capacity": 300, "type": "service", "pos": { "x": "64%", "y": "80%" }, "neighbors": ["FOODCOURTB", "VIPLOUNGE", "EXIT"] },
-    "RESTROOMEAST": { "name": "Restrooms East",     "capacity": 300, "type": "service", "pos": { "x": "64%", "y": "20%" }, "neighbors": ["NORTHTERRACE", "VIPLOUNGE", "EXIT"] },
-    "VIPLOUNGE":    { "name": "Premier Lounge",     "capacity": 400, "type": "service", "pos": { "x": "82%", "y": "50%" }, "neighbors": ["NORTHTERRACE", "RESTROOMWEST", "RESTROOMEAST", "FOODCOURTA", "FOODCOURTB", "EXIT"] },
-    "EXIT":         { "name": "Stadium Exit",       "capacity": 1000, "type": "exit",    "pos": { "x": "94%", "y": "50%" }, "neighbors": ["VIPLOUNGE", "RESTROOMWEST", "RESTROOMEAST"] }
+    "ENTRANCE":     { "name": "Main Entrance",      "capacity": 500, "type": "entry",   "pos": { "x": "5%",  "y": "50%" }, "neighbors": ["CONCOURSE", "FOODCOURTA", "FOODCOURTB"] },
+    "CONCOURSE":    { "name": "Main Concourse",     "capacity": 400, "type": "path",    "pos": { "x": "25%", "y": "20%" }, "neighbors": ["ENTRANCE", "NORTHTERRACE", "FOODCOURTA"] },
+    "FOODCOURTA":   { "name": "Food Court A",       "capacity": 300, "type": "service", "pos": { "x": "25%", "y": "50%" }, "neighbors": ["ENTRANCE", "CONCOURSE", "FOODCOURTB", "VIPLOUNGE"] },
+    "FOODCOURTB":   { "name": "Food Court B",       "capacity": 300, "type": "service", "pos": { "x": "25%", "y": "80%" }, "neighbors": ["ENTRANCE", "FOODCOURTA", "RESTROOMWEST", "VIPLOUNGE"] },
+    "NORTHTERRACE": { "name": "The Pavilion",       "capacity": 600, "type": "path",    "pos": { "x": "50%", "y": "20%" }, "neighbors": ["CONCOURSE", "VIPLOUNGE", "RESTROOMEAST", "EXIT"] },
+    "RESTROOMWEST": { "name": "Restrooms West",     "capacity": 300, "type": "service", "pos": { "x": "75%", "y": "80%" }, "neighbors": ["FOODCOURTB", "VIPLOUNGE"] },
+    "RESTROOMEAST": { "name": "Restrooms East",     "capacity": 300, "type": "service", "pos": { "x": "75%", "y": "20%" }, "neighbors": ["NORTHTERRACE", "VIPLOUNGE"] },
+    "VIPLOUNGE":    { "name": "Premier Lounge",     "capacity": 400, "type": "service", "pos": { "x": "75%", "y": "50%" }, "neighbors": ["NORTHTERRACE", "RESTROOMWEST", "RESTROOMEAST", "FOODCOURTA", "FOODCOURTB", "EXIT"] },
+    "EXIT":         { "name": "Stadium Exit",       "capacity": 1000, "type": "exit",    "pos": { "x": "95%", "y": "50%" }, "neighbors": ["VIPLOUNGE", "NORTHTERRACE"] }
   },
   "edges": [
     ["ENTRANCE", "CONCOURSE"], ["ENTRANCE", "FOODCOURTA"], ["ENTRANCE", "FOODCOURTB"],
     ["CONCOURSE", "NORTHTERRACE"], ["CONCOURSE", "FOODCOURTA"],
-    ["NORTHTERRACE", "VIPLOUNGE"], ["NORTHTERRACE", "RESTROOMEAST"],
+    ["NORTHTERRACE", "VIPLOUNGE"], ["NORTHTERRACE", "RESTROOMEAST"], ["NORTHTERRACE", "EXIT"],
     ["FOODCOURTA", "FOODCOURTB"], ["FOODCOURTA", "VIPLOUNGE"],
     ["FOODCOURTB", "RESTROOMWEST"], ["FOODCOURTB", "VIPLOUNGE"],
-    ["RESTROOMWEST", "VIPLOUNGE"], ["RESTROOMWEST", "EXIT"],
+    ["RESTROOMWEST", "VIPLOUNGE"],
     ["RESTROOMEAST", "VIPLOUNGE"],
     ["VIPLOUNGE", "EXIT"]
   ]

@@ -1,150 +1,108 @@
 # 🏟️ SVOS — Smart Venue Orchestration System
 
-> **Real-time AI-powered crowd management and intelligent routing for large-scale venues.**
+> **Real-time AI-powered crowd management and predictive routing for large-scale venues.**
 
-SVOS is a full-stack tactical command console that monitors crowd density across arena zones in real time, computes optimal navigation paths using a shortest-path algorithm, and dynamically reroutes attendees the moment a zone becomes dangerously congested — all visualized on a live, high-fidelity neural graph dashboard.
+SVOS is a tactical "Digital Twin" command console that monitors stadium crowd pressure in real time. It doesn't just react to congestion—it **predicts** it. Using a horizon-based routing engine, SVOS anticipates surges and proactively reroutes attendees along paths that minimize wait times and maximize safety, all visualized on a professional-grade Neural Graph.
 
 ---
 
-## 🎬 Demo
+## 🎬 Showcase Features
 
-| Feature | Preview |
+| Feature | Description |
 |---|---|
-| **Live Heatmap Pressure Field** | Radial gradient blobs merge into a continuous density map |
-| **Kinetic Flow Particles** | Organic-speed dots travel along the active route |
-| **AI Thinking Overlay** | "Analyzing congestion…" spinner fires before every reroute |
-| **Critical Surge Banner** | Red alert drops in when any zone hits >90% capacity |
-| **Config-Driven Venue Engine** | Instant stadium layout swapping via JSON without code changes |
-| **Controlled Demo Mode** | 4-step narrative walkthrough for presentations |
+| **Predictive AI Engine** | Projects zone density 2 steps ahead using inflow/outflow trends to pre-emptively avoid bottlenecks. |
+| **"What-If" Ghosting** | Visualizes the "Naive" congested path (dashed red) vs the "Smart" AI path (green) to provide a clear baseline of performance. |
+| **Predictive Horizon Glow** | A state-of-the-art heatmap layer that glows based on *future* pressure, giving situational awareness before surges happen. |
+| **Tactical Dashboard** | Built with **React Flow**, featuring kinetic flow particles, glow effects, and a glassmorphic command sidebar. |
+| **Wait-Time Trends** | Real-time queue velocity tracking (↑/↓) for all amenities (Food Courts, VIP Lounges, Restrooms). |
+| **Emergency Modality** | The dashboard automatically transitions to "Evacuation Mode" (Red Alert) when the AI detects critical safety hazards. |
 
 ---
 
 ## ✨ Key Features
 
-### 🧠 Intelligence Layer
-- **Dijkstra/Shortest-Path Routing** — Backend computes optimal `Zone1 → Zone4` paths every 2 seconds, factoring in live crowd density and queue wait times.
-- **Congestion Alerting** — Zones exceeding 80% capacity trigger rerouting; >90% fires a critical surge banner.
-- **Sequenced Pipeline** — Timestamp-based data processing ensures UI state never jitters or drifts out of order.
+### 🧠 Modern AI Routing Layer
+- **Predictive Weighting** — The Dijkstra implementation factors in `Inflow - Outflow` velocity to predict future congestion, moving from reactive to proactive management.
+- **Explainable AI (XAI)** — The "Engine Directive" console translates complex mathematical weights into natural language rationale (e.g., *"Bypassing high-pressure Food Court A...*").
+- **Naive Distance Calibration** — Computes raw shortest-distance paths for benchmarking against AI-weighted routes.
 
 ### 🛰️ Production-Ready Architecture
-- **Config-Driven Zones** — Decoupled stadium geometry, connectivity, and SVG coordinates stored in `venue.json`.
-- **Pluggable Data Pipeline** — Abstracted ingestion layer allows switching between simulation and real-world sensor streams (Cams/WiFi) via environment variables.
-- **Neural Engine Overlay** — Deliberate 500–800ms "perception lag" allows the UI to feel analytical and intelligent during reroutes.
+- **Distributed State Simulation** — A multi-layered simulation engine follows crowd drift patterns, ensuring a 1:1 "Digital Twin" feel.
+- **Socket-Driven Sync** — High-fidelity, sequenced WebSocket pipeline ensures UI telemetry is always synchronized with the hub.
+- **Modular Services** — Clean separation between simulation, state management, and the routing logic.
 
-### 🗺️ Map Visualization
-- **Ghost Graph** — Full venue connection graph rendered as faint dashed lines (the "neural network" backdrop).
-- **Dominant Active Path** — Bright neon route with double drop-shadow and flow particles.
-- **Dynamic Heatmap** — Per-zone radial gradient blobs that blend into a continuous crowd pressure field.
+### 🗺️ Visual HUD (Neural Graph)
+- **Radar Tracker** — A high-visibility "YOU" marker with a concentric pulse for rapid localization.
+- **Dynamic Edge Scaling** — Path segments turn Yellow if internal zone pressure is high, even on a generally safe route.
+- **Heatmap Overlay** — Ambient predictive glows provide global situational awareness without cluttering the nodal layout.
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ Project Structure
 
 ```
 svos/
-├── server/                     # Node.js + Express backend
-│   ├── index.js                # Main server & Socket.io hub
+├── server/                     # Node.js + Socket.io Core
+│   ├── index.js                # WebSocket Hub & Event Orchestration
 │   ├── config/
-│   │   └── venue.json          # Decoupled stadium layout & geometry
+│   │   └── venue.json          # DECADE (Decoupled Arena Data) Topology
 │   ├── services/
-│   │   ├── routingService.js   # Dijkstra implementation
-│   │   ├── alertService.js     # Threshold detection
-│   │   └── firebaseService.js  # Persistence layer
+│   │   └── routingService.js   # Predictive AI Routing Engine (Dijkstra)
 │   └── simulation/
-│       ├── DataPipeline.js     # Pluggable sensor abstraction layer
-│       ├── stadium.js          # Config-driven zone state
-│       └── crowdSimulator.js   # Production-ready drift simulation
+│       ├── venueState.js       # Digital Twin State Manager
+│       ├── crowdSimulator.js   # Dynamic Movement Simulation
+│       └── DataPipeline.js     # Abstracted Ingestion Layer
 │
-├── svos-ui/                    # React + Vite frontend
+├── svos-ui/                    # React 18 + Vite Frontend
 │   └── src/
-│       ├── App.jsx             # Dynamic dashboard (Map, SVG, Panels)
-│       └── index.css           # Global design system
+│       ├── components/
+│       │   └── VenueFlow.jsx   # Managed React Flow Graph Component
+│       ├── App.jsx             # Tactical Command HUD & State
+│       └── index.css           # Modern Tactical Design System
 │
-└── tests/                      # mocha/chai integration suite
+└── tests/                      # Validation Suite
+    └── socketTest.js           # End-to-end Socket Emitter Validation
 ```
 
 ---
 
-## 🛠️ Tech Stack
+## 🛠️ Technology Stack
 
 | Layer | Technology |
 |---|---|
-| **Frontend** | React 18, Vite, Tailwind CSS v4, Framer Motion |
-| **Backend** | Node.js, Express, Socket.io (WebSocket-only transport) |
-| **Database** | Firebase Firestore |
-| **Transport** | High-fidelity sequenced socket pipeline |
-| **Dev Tools** | Nodemon, Mocha, Chai, Supertest |
+| **Frontend** | React 18, Vite, Tailwind CSS, React Flow, Framer Motion |
+| **Backend** | Node.js, Express, Socket.io (WS-only) |
+| **Database** | Firebase Firestore (Optional Persistence) |
+| **AI/Logic** | Predictive Dijkstra (Weighted Graph Theory) |
 
 ---
 
 ## ⚡ Getting Started
 
-### 1. Configure Environment
-Create a `.env` file in the root `/svos` directory:
-
-```env
-PORT=3001
-DATA_SOURCE=SIMULATION # Or SENSOR_ENGINE for live feeds
-FIREBASE_PROJECT_ID=your-project-id
-FIREBASE_PRIVATE_KEY="..."
-FIREBASE_CLIENT_EMAIL="..."
-```
-
-### 2. Start the System
+### 1. Start the Backend
 ```bash
-# Terminal 1: Backend
+# From /svos
 npm install
 npm run dev
+```
 
-# Terminal 2: Frontend
+### 2. Start the Tactical Dashboard
+```bash
+# In a new terminal
 cd svos-ui
 npm install
 npm run dev
 ```
 
----
-
-## 🧪 Testing
-
-SVOS includes a comprehensive integration suite to ensure routing and alert reliability.
-
+### 3. Run Validation
+To verify the routing engine and socket connection independently:
 ```bash
-# Run all unit and integration tests
-npm test
-
-# Run manual socket event validation
 node tests/socketTest.js
 ```
 
 ---
 
-## 📡 API Reference
-
-### REST Endpoints
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/config` | Returns the dynamic venue layout and graph |
-| `GET` | `/crowd` | Returns current density for all zones |
-| `POST` | `/route` | Returns optimal path between source and dest |
-
-### Socket Events (Broadcast)
-| Event | Payload | Frequency |
-|-------|---------|-----------|
-| `crowd_update` | `{ zones, timestamp }` | Every 2s |
-| `auto_route` | `{ path, quality, reason, … }` | On change |
-| `congestion_alert`| `{ alerts, timestamp }` | Threshold trigger |
-
----
-
-## 📋 Roadmap
-- [x] **Config-Driven Architecture** — Done
-- [x] **Pluggable Data Pipeline** — Done (Simulation/Sensor abstraction)
-- [ ] **Multi-destination routing** — Support for complex attendee journeys
-- [ ] **Mobile-responsive layout** — For handheld security devices
-- [ ] **Historical analytics** — Heatmap playback for incident reviews
-
----
-
 <div align="center">
-  <strong>Built with ⚡ for real-time crowd safety and venue intelligence.</strong>
+  <strong>Built for real-time crowd safety & venue intelligence.</strong><br/>
+  <em>Strategic Virtual Orchestration System — SVOS v4.0</em>
 </div>

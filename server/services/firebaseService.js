@@ -1,7 +1,19 @@
+/**
+ * FIREBASE SERVICE
+ * Handles communication with Google Cloud Firestore for historical data persistence.
+ * Includes a robust fallback to a mock database if no service account is provided.
+ */
+
 const admin = require('firebase-admin');
 
 let db;
 
+/**
+ * initFirebase
+ * Boots the Firebase Admin SDK. If a valid service account is found in 
+ * environment variables, it connects to real Firestore; otherwise, 
+ * it initializes an in-memory mock to prevent site crashes.
+ */
 const initFirebase = () => {
   const initializeMock = () => {
     console.warn('Using MOCK mode for Firestore.');
@@ -42,6 +54,10 @@ const initFirebase = () => {
   }
 };
 
+/**
+ * storeCrowdData
+ * Persists current crowd distribution (density) to the cloud.
+ */
 const storeCrowdData = async (data) => {
   if (!db || typeof db.collection !== 'function') return;
   try {
@@ -52,6 +68,10 @@ const storeCrowdData = async (data) => {
   }
 };
 
+/**
+ * storeQueueData
+ * Persists current service wait times to the cloud.
+ */
 const storeQueueData = async (data) => {
   if (!db || typeof db.collection !== 'function') return;
   try {
@@ -63,3 +83,4 @@ const storeQueueData = async (data) => {
 };
 
 module.exports = { initFirebase, storeCrowdData, storeQueueData };
+

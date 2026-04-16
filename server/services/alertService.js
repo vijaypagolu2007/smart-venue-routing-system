@@ -1,17 +1,27 @@
-// server/services/alertService.js
+/**
+ * ALERT SERVICE
+ * Analyzes current zone densities and generates real-time congestion alerts.
+ * This data is used by the frontend to display warnings and by the 
+ * routing engine to adjust path weights.
+ */
 
+/**
+ * checkCongestion
+ * Iterates through all stadium zones to find density levels above 
+ * predefined thresholds (Medium: 50%, High: 70%, Critical: 90%).
+ */
 function checkCongestion(zones) {
   let alerts = [];
 
   for (let zone in zones) {
     const density = zones[zone].density;
     const capacity = zones[zone].capacity;
-
     let percent = Math.round((density / capacity) * 100);
 
     let level = "";
     let message = "";
 
+    // Categorize congestion level based on capacity usage
     if (percent > 90) {
       level = "CRITICAL";
       message = `Avoid ${zone} - Extreme congestion (${percent}%)`;
@@ -24,11 +34,7 @@ function checkCongestion(zones) {
     }
 
     if (level) {
-      alerts.push({
-        zone,
-        level,
-        message
-      });
+      alerts.push({ zone, level, message });
     }
   }
 
@@ -36,3 +42,4 @@ function checkCongestion(zones) {
 }
 
 module.exports = { checkCongestion };
+

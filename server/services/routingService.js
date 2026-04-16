@@ -1,86 +1,114 @@
+/**
+ * ROUTING SERVICE v2 (OPTIMIZED)
+ * This module provides predictive pathfinding capabilities for the venue.
+ * Refactored for modularity, predictability, and "Smart AI" demonstration.
+ */
+
 const { services } = require("../simulation/queueSimulator");
 const { getWorstService } = require("./queueService");
 
-function findSafeZone(zones, excludeSource) {
-  let safest = null;
-  let minCongestion = Infinity;
+/**
+ * 🧠 PREDICTIVE AI LAYER
+ * Predicts congestion 2 steps ahead based on inflow/outflow trends.
+ */
+function predictCongestion(zone) {
+  // Density + (Net change) * Prediction Horizon (2 ticks)
+  const predictedDensity = zone.density + (zone.inflow - zone.outflow) * 2;
+  return Math.max(0, predictedDensity);
+}
+
+/**
+ * 🛡️ ADVANCED FALLBACK LOGIC
+ * Distance-aware fallback selection to find the nearest and safest refuge.
+ */
+function findBestFallback(zones, source) {
+  let best = null;
+  let bestScore = Infinity;
 
   for (let z in zones) {
-    if (z === "Exit") continue; 
-    if (z === excludeSource) continue; 
+    if (z === source || z === "EXIT") continue;
+
+    const futureDensity = predictCongestion(zones[z]);
+    const congestion = futureDensity / zones[z].capacity;
     
-    let congestion = zones[z].density / zones[z].capacity;
-    if (congestion < minCongestion) {
-      minCongestion = congestion;
-      safest = z;
+    // Distance heuristic: neighbor = 1, others = 3
+    const dist = (zones[source].neighbors || []).includes(z) ? 1 : 3;
+    
+    // Weight congestion more heavily than distance
+    const score = (congestion * 10) + dist;
+
+    if (score < bestScore) {
+      bestScore = score;
+      best = z;
     }
   }
-  return safest;
+
+  return best;
 }
 
-function getSafeNeighbors(zones, current) {
-  return (zones[current].neighbors || []).filter(n => {
-    let congestion = zones[n].density / zones[n].capacity;
-    return congestion < 0.85; // strict safety cutoff
-  });
-}
-
+/**
+ * 🛠️ UTILITIES
+ */
 function getQueuePenalty(zone) {
   let penalty = 0;
   for (let s in services) {
     if (services[s].zone === zone) {
-      let wait = services[s].queue / services[s].rate;
-      penalty += wait * 2; // weight impact
+      let wait = (services[s].queue / services[s].rate) || 0;
+      penalty += wait; 
     }
   }
   return penalty;
 }
 
-function computeRawPath(zones, source, destination, allowSourceCritical = false) {
+/**
+ * 1️⃣ COMPUTE PATH (Pure Algorithm)
+ * Refined weighting model: Predictable and Stable.
+ */
+function computePath(zones, source, destination, allowSourceCritical = false) {
   const dist = {};
   const parent = {};
   const visited = {};
   const blockedZones = [];
 
-  if (!allowSourceCritical) {
-    const srcCongestion = zones[source].density / zones[source].capacity;
-    if (srcCongestion >= 0.85) return null;
-  }
-
-  Object.keys(zones).forEach(zone => {
-    dist[zone] = Infinity;
-    parent[zone] = null;
+  Object.keys(zones).forEach(id => {
+    dist[id] = Infinity;
+    parent[id] = null;
   });
 
   dist[source] = 0;
 
   while (true) {
     let u = null;
-    for (let zone in dist) {
-      if (!visited[zone] && (u === null || dist[zone] < dist[u])) {
-        u = zone;
-      }
+    for (let id in dist) {
+      if (!visited[id] && (u === null || dist[id] < dist[u])) u = id;
     }
 
     if (u === null || dist[u] === Infinity) break;
     visited[u] = true;
+    if (u === destination) break;
 
     for (let neighbor of zones[u].neighbors) {
       if (visited[neighbor]) continue;
 
-      let congestion = zones[neighbor].density / zones[neighbor].capacity;
-      
+      const futureDensity = predictCongestion(zones[neighbor]);
+      const congestion = futureDensity / zones[neighbor].capacity;
+
+      // CLEAN WEIGHT MODEL
+      let weight = 1;
+
+      // Congestion influence (Primary)
+      weight += congestion * 10;
+
+      // Queue influence (Secondary - capped)
+      weight += Math.min(getQueuePenalty(neighbor), 20);
+
+      // Hard safety thresholds
       if (congestion >= 0.85) {
+        weight += 1000; // Impassable
         if (!blockedZones.includes(neighbor)) blockedZones.push(neighbor);
-        continue;
+      } else if (congestion >= 0.7) {
+        weight += 50;   // High avoidance
       }
-
-      let penalty = 1; // base 1
-      if (congestion >= 0.7) penalty += 200;
-      else if (congestion >= 0.5) penalty += 50;
-
-      let queuePenalty = getQueuePenalty(neighbor);
-      let weight = 1 + penalty + (congestion * 30) + queuePenalty + 0.1;
 
       if (dist[u] + weight < dist[neighbor]) {
         dist[neighbor] = dist[u] + weight;
@@ -89,9 +117,9 @@ function computeRawPath(zones, source, destination, allowSourceCritical = false)
     }
   }
 
-  if (dist[destination] === Infinity) return { blockedZones };
+  if (dist[destination] === Infinity) return { path: [], cost: Infinity, blockedZones };
 
-  let path = [];
+  const path = [];
   let curr = destination;
   while (curr) {
     path.push(curr);
@@ -101,203 +129,168 @@ function computeRawPath(zones, source, destination, allowSourceCritical = false)
       break;
     }
   }
-
-  return {
-    path: path.reverse(),
-    cost: dist[destination],
-    blockedZones
-  };
+  return { path: path.reverse(), cost: dist[destination], blockedZones };
 }
 
-function getQuality(cost) {
-  if (cost >= 85) return "DANGEROUS";
-  if (cost >= 60) return "RISKY";
-  if (cost >= 30) return "MODERATE";
-  return "GOOD";
-}
+/**
+ * 1.5️⃣ COMPUTE NAIVE PATH (Shortest Physical Distance)
+ * Simple Dijkstra where all weights = 1. Shows where the user WOULD go without AI.
+ */
+function computeNaivePath(zones, source, destination) {
+  const dist = {};
+  const parent = {};
+  const visited = {};
 
-function calculateConfidence(normalizedCost, usedHighZonesCount, noSafePath, quality) {
-  let confidence = Math.max(10, 100 - Math.round(normalizedCost));
+  Object.keys(zones).forEach(id => {
+    dist[id] = Infinity;
+    parent[id] = null;
+  });
 
-  if (usedHighZonesCount > 0) confidence -= 20;
-  if (noSafePath) confidence -= 30;
+  dist[source] = 0;
 
-  if (quality === "MODERATE" && confidence < 45) {
-    confidence = 45;
-  } else if (quality === "RISKY" && confidence < 25) { 
-    confidence = 25;
-  }
+  while (true) {
+    let u = null;
+    for (let id in dist) {
+      if (!visited[id] && (u === null || dist[id] < dist[u])) u = id;
+    }
 
-  return Math.max(5, Math.min(100, confidence));
-}
+    if (u === null || dist[u] === Infinity || u === destination) break;
+    visited[u] = true;
 
-function shortestPath(zones, source, destination) {
-  const uncertaintySuffix = " (limited safe options)";
-
-  if (!zones[source] || !zones[destination]) {
-    return { path: [], reason: "Invalid source or destination", cost: 0, quality: "N/A", confidence: "0%", steps: 0 };
-  }
-
-  const srcCongestion = zones[source].density / zones[source].capacity;
-
-  // 🔄 FACILITY OVERFLOW LOGIC: Redirect to twin facility if primary is full
-  const OVERFLOW_TWINS = {
-    "FOODCOURTA":   "FOODCOURTB",
-    "FOODCOURTB":   "FOODCOURTA",
-    "RESTROOMWEST": "RESTROOMEAST",
-    "RESTROOMEAST": "RESTROOMWEST"
-  };
-
-  let redirectionNotice = "";
-  if (OVERFLOW_TWINS[destination]) {
-    const destCongestion = zones[destination].density / zones[destination].capacity;
-    if (destCongestion >= 0.85) {
-      const twin = OVERFLOW_TWINS[destination];
-      const twinCongestion = zones[twin].density / zones[twin].capacity;
-      if (twinCongestion < 0.85) {
-        redirectionNotice = `NOTICE: ${destination} is at critical capacity. Redirection to ${twin} recommended.`;
-        destination = twin; // SWAP DESTINATION to the twin
+    for (let neighbor of zones[u].neighbors) {
+      if (visited[neighbor]) continue;
+      if (dist[u] + 1 < dist[neighbor]) { // Unweighted
+        dist[neighbor] = dist[u] + 1;
+        parent[neighbor] = u;
       }
     }
   }
 
-  const destCongestion = zones[destination].density / zones[destination].capacity;
+  const path = [];
+  let curr = destination;
+  while (curr) {
+    path.push(curr);
+    curr = parent[curr];
+    if (curr === source) {
+      path.push(source);
+      break;
+    }
+  }
+  return path.reverse();
+}
 
-  // 🆘 CASE: Source is Critical (EMERGENCY)
+
+/**
+ * 2️⃣ HANDLE EDGE CASES (Emergency & Redirection)
+ */
+function handleEdgeCases(zones, source, destination) {
+  const srcFuture = predictCongestion(zones[source]);
+  const srcCongestion = srcFuture / zones[source].capacity;
+
+  const OVERFLOW_TWINS = {
+    "FOODCOURTA": "FOODCOURTB", "FOODCOURTB": "FOODCOURTA",
+    "RESTROOMWEST": "RESTROOMEAST", "RESTROOMEAST": "RESTROOMWEST"
+  };
+
+  // Emergency: Source is unsafe
   if (srcCongestion >= 0.85) {
-    const safeNeighbors = getSafeNeighbors(zones, source);
-
-    if (safeNeighbors.length > 0) {
-      let best = safeNeighbors.reduce((a, b) => {
-        let ca = zones[a].density / zones[a].capacity;
-        let cb = zones[b].density / zones[b].capacity;
-        return ca < cb ? a : b;
-      });
-
-      return {
-        path: [source, best],
-        quality: "MODERATE",
-        confidence: "60%",
-        steps: 1,
-        reason: `Emergency: ${source} unsafe. Redirecting to nearest viable zone: ${best}`
-      };
-    }
-
+    const fallback = findBestFallback(zones, source);
     return {
-      path: [],
-      quality: "DANGEROUS",
-      confidence: "5%",
-      steps: 0,
-      reason: `Emergency: ${source} unsafe and no safe adjacent zones available. Stay in place${uncertaintySuffix}`
+      type: "EMERGENCY_SOURCE",
+      source,
+      destination: fallback,
+      reason: `EMERGENCY: Source [${source}] unsafe. Rerouting to nearest refuge [${fallback}].`
     };
   }
 
-  // 🚦 CASE: Destination is Unsafe (Critical)
-  if (destCongestion >= 0.85) {
-    const safeZone = findSafeZone(zones, source);
-    if (!safeZone) {
-      return {
-        path: [],
-        reason: `Destination ${destination} unsafe. No safe fallback available. Stay in place${uncertaintySuffix}.`,
-        cost: 100,
-        quality: "DANGEROUS",
-        confidence: "5%",
-        steps: 0
-      };
+  // Redirection: Destination is full
+  if (OVERFLOW_TWINS[destination]) {
+    const destFuture = predictCongestion(zones[destination]);
+    if (destFuture / zones[destination].capacity >= 0.85) {
+      const twin = OVERFLOW_TWINS[destination];
+      if (predictCongestion(zones[twin]) / zones[twin].capacity < 0.85) {
+        return {
+          type: "REDIRECTION",
+          source,
+          destination: twin,
+          reason: `NOTICE: [${destination}] at capacity. Redirecting to twin facility [${twin}].`
+        };
+      }
     }
+  }
 
-    const redirectResult = computeRawPath(zones, source, safeZone, false);
-    const path = (redirectResult && redirectResult.path) ? redirectResult.path : [safeZone];
-    
+  // Destination is unsafe (no direct twin found or available)
+  const finalDestFuture = predictCongestion(zones[destination]);
+  if (finalDestFuture / zones[destination].capacity >= 0.85) {
+    const fallback = findBestFallback(zones, source);
     return {
-      path: path,
-      reason: `Destination ${destination} unsafe. Redirecting to safest available zone: ${safeZone}${uncertaintySuffix}.`,
-      cost: 100,
-      quality: "RISKY",
-      confidence: "25%",
-      steps: path.length - 1
+      type: "EMERGENCY_DEST",
+      source,
+      destination: fallback,
+      reason: `NOTICE: [${destination}] unsafe. Diverting to safest zone [${fallback}].`
     };
   }
 
-  let result = computeRawPath(zones, source, destination, false);
+  return { type: "NORMAL", source, destination };
+}
 
-  if (!result || !result.path) {
-    const safeZone = findSafeZone(zones, source);
-    if (!safeZone) {
-       return {
-        path: [],
-        reason: `Critical stadium deadlock. No safe movement possible${uncertaintySuffix}.`,
-        cost: 100,
-        quality: "DANGEROUS",
-        confidence: "5%",
-        steps: 0
-      };
-    }
-
-    const escape = computeRawPath(zones, source, safeZone, true);
-    const path = (escape && escape.path) ? escape.path : [safeZone];
-    
-    return {
-      path: path,
-      reason: `No safe route to ${destination}. Redirecting to safest available zone: ${safeZone}${uncertaintySuffix}.`,
-      cost: 100,
-      quality: "RISKY",
-      confidence: "25%",
-      steps: path.length - 1
-    };
-  }
-
-  const normalizedCost = Math.min(100, (result.cost / 1.5));
-  const quality = getQuality(normalizedCost);
-  const confidenceValue = calculateConfidence(normalizedCost, result.path.filter(z => z !== source && (zones[z].density / zones[z].capacity) > 0.7).length, false, quality);
-
-  // 🧠 CLEANER LOGIC REASONING
-  let details = [];
-
-  // 1. Congested/Blocked Zones
-  if (result.blockedZones && result.blockedZones.length > 0) {
-    details.push(...result.blockedZones);
-  }
+/**
+ * 3️⃣ BUILD RESPONSE (UI Formatting)
+ */
+function buildResponse(zones, source, destination, result, redirectionNotice, naivePath = []) {
+  const normalizedCost = Math.min(100, result.cost * 1.5);
   
-  // 2. Used Risky Zones
-  let usedHighZones = result.path.filter(z => z !== source && (zones[z].density / zones[z].capacity) > 0.7);
-  if (usedHighZones.length > 0) {
-    details.push(...usedHighZones);
-  }
+  let quality = "GOOD";
+  if (normalizedCost > 80) quality = "DANGEROUS";
+  else if (normalizedCost > 50) quality = "RISKY";
+  else if (normalizedCost > 30) quality = "MODERATE";
 
-  // 3. Worst Queue Service
-  const worst = getWorstService(services);
-  if (worst && worst.wait > 10) {
-    details.push(worst.name);
-  }
+  let confidence = Math.max(5, 100 - Math.round(normalizedCost));
+  if (result.blockedZones.length > 0) confidence -= 20;
 
-  // Limit to top 2 for clean demo
-  const summaryDetails = details.slice(0, 2);
-  let reason = "";
-
-  if (summaryDetails.length > 0) {
-    reason = `Avoiding high congestion zones and long-wait services (${summaryDetails.join(", ")})`;
-  } else {
-    reason = "Selected least congested path based on real-time analysis";
-  }
-
-  if (redirectionNotice) {
-    reason = `${redirectionNotice} ${reason}`;
-  }
-
-  if (confidenceValue < 30) {
-    reason += uncertaintySuffix;
+  // Construct natural reasoning
+  let reason = redirectionNotice || "Optimized path based on predicted flow and queue delays.";
+  if (result.blockedZones.length > 0) {
+    reason = `Bypassing high-pressure zones (${result.blockedZones.slice(0, 2).join(", ")}). ${reason}`;
   }
 
   return {
     path: result.path,
+    naivePath,
     cost: normalizedCost,
     quality,
-    confidence: `${confidenceValue}%`,
-    steps: result.path.length - 1,
-    blockedZones: result.blockedZones,
+    confidence: `${Math.max(5, confidence)}%`,
+    steps: Math.max(0, result.path.length - 1),
     reason
   };
+}
+
+/**
+ * 🚀 SHORTEST PATH (Orchestrator)
+ */
+function shortestPath(zones, source, destination) {
+  if (!zones[source] || !zones[destination]) {
+    return { path: [], reason: "Invalid zone mapping", quality: "N/A", confidence: "0%" };
+  }
+
+  // 1. Check emergency and redirection
+  const edgeCase = handleEdgeCases(zones, source, destination);
+  
+  // 2. Compute the path
+  let result = computePath(zones, edgeCase.source, edgeCase.destination);
+
+  // 3. Compute the "Naive" physical path for comparison
+  const naivePath = computeNaivePath(zones, source, destination);
+
+  // 4. Handle total path failure (deadlock)
+  if (result.path.length === 0) {
+     const fallback = findBestFallback(zones, source);
+     result = computePath(zones, source, fallback);
+     edgeCase.reason = `DEADLOCK: Path to [${destination}] blocked. Escape route to [${fallback}] active.`;
+  }
+
+  // 5. Format for UI
+  return buildResponse(zones, source, edgeCase.destination, result, edgeCase.reason, naivePath);
 }
 
 module.exports = { shortestPath };

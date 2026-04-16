@@ -1,33 +1,37 @@
-const { zones, setDensity } = require("./stadium");
-
 /**
- * DataPipeline: Abstraction for density data ingestion.
- * In a real production environment, 'SENSOR_MODE' would listen to MQTT/Webhooks
- * from WiFi controllers or Camera AI streams.
+ * DATA PIPELINE
+ * Acts as an abstraction layer for crowd data ingestion.
+ * This allows the system to easily switch between internally generated 
+ * simulation data and real-world sensor data (IoT, WiFi, Camera AI).
  */
+
+const { zones, setDensity } = require("./venueState");
+
 class DataPipeline {
   constructor(mode = "SIMULATION") {
     this.mode = mode; // "SIMULATION" or "SENSOR_ENGINE"
   }
 
   /**
-   * Sync data from external sources.
-   * Currently mocks the transition to a real feed.
+   * sync
+   * Orchestrates the data update process.
+   * In simulation mode, the logic is self-contained. 
+   * In sensor mode, this would poll or receive events from physical hardware.
    */
   async sync() {
     if (this.mode === "SIMULATION") {
-      // Logic for random simulation drift is handled in updateDensities()
-      // for this demo, but could be moved here entirely.
+      // Logic for random simulation drift is primarily handled in venueState.js
       return;
     }
 
     if (this.mode === "SENSOR_ENGINE") {
-      // EXAMPLE: Fetching from a real IoT endpoint
-      // const data = await axios.get("https://api.venue-sensors.com/v1/live");
-      // data.zones.forEach(z => setDensity(z.id, z.count));
+      // PROD-TECH: Integration point for live facility IoT feeds.
+      // Example: data.zones.forEach(z => setDensity(z.id, z.count));
       console.log("[PIPELINE] Reading from production sensor stream...");
     }
   }
 }
 
+// Export a single instance configured via environment variables
 module.exports = new DataPipeline(process.env.DATA_SOURCE || "SIMULATION");
+

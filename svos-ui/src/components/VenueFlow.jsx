@@ -53,6 +53,30 @@ const VenueNode = ({ data }) => {
   );
 };
 
+// ─── HEATMAP NODE ────────────────────────────────────────────────────────────
+const HeatmapNode = ({ data }) => {
+  const { pressure } = data;
+  const glowColor = pressure > 80 ? "rgba(244,63,94,0.4)" : 
+                    pressure > 60 ? "rgba(245,158,11,0.25)" : 
+                    "rgba(56,189,248,0.15)";
+
+  return (
+    <div className="flex items-center justify-center pointer-events-none" style={{ transform: "translate(-50%, -50%)" }}>
+      <motion.div
+        animate={{ opacity: [0.3, 0.6, 0.3], scale: [1, 1.3, 1] }}
+        transition={{ repeat: Infinity, duration: 3 + Math.random() * 2 }}
+        style={{
+          width: 320,
+          height: 240,
+          borderRadius: '50%',
+          filter: 'blur(60px)',
+          backgroundColor: glowColor
+        }}
+      />
+    </div>
+  );
+};
+
 // ─── CUSTOM EDGE ─────────────────────────────────────────────────────────────
 const CustomEdge = ({ id, sourceX, sourceY, targetX, targetY, data }) => {
   const { isInRoute, isHazard, targetDensity = 0, isNaive = false } = data;
@@ -145,39 +169,8 @@ const DestNode = ({ data }) => {
   );
 };
 
-const nodeTypes = { venueNode: VenueNode, tracker: TrackerNode, dest: DestNode };
+const nodeTypes = { venueNode: VenueNode, heatmap: HeatmapNode, tracker: TrackerNode, dest: DestNode };
 const edgeTypes = { customEdge: CustomEdge };
-
-// ─── PREDICTIVE HEATMAP ──────────────────────────────────────────────────────
-const PredictiveHeatmap = ({ config, zones }) => {
-  const SCALE_X = 1200 / 100;
-  const SCALE_Y = 800 / 100;
-
-  return (
-    <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-      {Object.entries(config.zones || {}).map(([id, z]) => {
-        const zoneData = zones[id];
-        if (!zoneData) return null;
-        const pressure = ((zoneData.density + (zoneData.inflow - zoneData.outflow) * 2) / zoneData.capacity) * 100;
-        const glowColor = pressure > 80 ? "rgba(244,63,94,0.3)" : pressure > 60 ? "rgba(245,158,11,0.2)" : "rgba(56,189,248,0.15)";
-        return (
-          <motion.div
-            key={`glow-${id}`}
-            animate={{ opacity: [0.3, 0.6, 0.3], scale: [1, 1.2, 1] }}
-            transition={{ repeat: Infinity, duration: 3 + Math.random() * 2 }}
-            style={{
-              position: 'absolute',
-              left: parseFloat(z.pos.x) * SCALE_X - 150,
-              top: parseFloat(z.pos.y) * SCALE_Y - 100,
-              width: 300, height: 200, borderRadius: '50%', filter: 'blur(60px)',
-              backgroundColor: glowColor
-            }}
-          />
-        );
-      })}
-    </div>
-  );
-};
 
 // ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
 export default function VenueFlow({ config, zones, route, avoidedZone, naivePath = [], heatmapActive = false }) {
@@ -186,17 +179,39 @@ export default function VenueFlow({ config, zones, route, avoidedZone, naivePath
 
   const nodes = useMemo(() => {
     if (!config) return [];
-    const base = Object.entries(config.zones).map(([id, z]) => {
+    const base = [];
+    
+    // 1. Add Heatmap Glow Nodes if active
+    if (heatmapActive) {
+      Object.entries(config.zones).forEach(([id, z]) => {
+        const zoneData = zones[id];
+        if (!zoneData) return;
+        const pressure = ((zoneData.density + (zoneData.inflow - zoneData.outflow) * 2) / zoneData.capacity) * 100;
+        
+        base.push({
+          id: `heatmap-${id}`,
+          type: 'heatmap',
+          position: { x: parseFloat(z.pos.x) * SCALE_X + 74, y: parseFloat(z.pos.y) * SCALE_Y + 44 }, // Centered on node
+          data: { pressure },
+          draggable: false,
+          zIndex: -1, // Behind everything
+        });
+      });
+    }
+
+    // 2. Add Venue Nodes
+    Object.entries(config.zones).forEach(([id, z]) => {
       const pct = zones[id] ? (zones[id].density / zones[id].capacity) * 100 : 0;
-      return {
+      base.push({
         id,
         type: 'venueNode',
         position: { x: parseFloat(z.pos.x) * SCALE_X, y: parseFloat(z.pos.y) * SCALE_Y },
         data: { id, zoneName: z.name, pct, isCritical: pct > 90, isInRoute: route.includes(id), isBeingAvoided: avoidedZone === id },
         draggable: true,
-      };
+      });
     });
 
+    // 3. Add Overlays
     const startId = route[0];
     const destId = route[route.length - 1];
 
@@ -207,7 +222,7 @@ export default function VenueFlow({ config, zones, route, avoidedZone, naivePath
       base.push({ id: 'dest-node', type: 'dest', parentNode: destId, position: { x: 74, y: 44 }, extent: 'parent', draggable: false, data: { eta: (route.length - 1) * 2 }, zIndex: 1001 });
     }
     return base;
-  }, [config, zones, route, avoidedZone, SCALE_X, SCALE_Y]);
+  }, [config, zones, route, avoidedZone, heatmapActive, SCALE_X, SCALE_Y]);
 
   const edges = useMemo(() => {
     if (!config) return [];
@@ -226,7 +241,6 @@ export default function VenueFlow({ config, zones, route, avoidedZone, naivePath
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
          <span className="text-[140px] font-black text-white/[0.03] uppercase tracking-[0.25em] select-none">ARENA</span>
       </div>
-      {heatmapActive && <PredictiveHeatmap config={config} zones={zones} />}
       <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} fitView minZoom={0.2} maxZoom={2} style={{ background: 'transparent' }} colorMode="dark">
         <Background variant="dots" gap={30} size={1} color="rgba(255, 255, 255, 0.05)" />
       </ReactFlow>

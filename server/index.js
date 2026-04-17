@@ -37,7 +37,9 @@ const io = new Server(server, {
 app.use(cors());
 app.use(express.json());
 
-const PORT = 5000;
+
+
+const PORT = process.env.PORT || 5000;
 
 /**
  * INITIALIZATION
@@ -59,6 +61,8 @@ app.use("/route", routeRoutes);
 app.get("/health", (req, res) => {
   res.json({ status: "UP", timestamp: Date.now() });
 });
+
+
 
 // Provides static venue configuration (layout, nodes, capacities)
 app.get("/config", (req, res) => {
@@ -253,6 +257,21 @@ const startSimulations = () => {
     io.emit("queue_update", { data: queueData, timestamp: Date.now() });
   }, 4000);
 };
+
+// Serve static files from the React app
+app.use(express.static(path.join(__dirname, "../svos-ui/dist")));
+
+// The "catchall" handler: for any request that doesn't
+// match a defined route, send back React's index.html file.
+app.use((req, res, next) => {
+  const filePath = path.join(__dirname, "../svos-ui/dist/index.html");
+  if (fs.existsSync(filePath)) {
+    res.sendFile(filePath);
+  } else {
+    // If frontend hasn't been built yet, just show a message or move to next
+    next();
+  }
+});
 
 const stopSimulations = () => {
   clearInterval(crowdInterval);

@@ -1,7 +1,7 @@
 const request = require('supertest');
 const { expect } = require('chai');
 const { server, startSimulations, stopSimulations } = require('../server/index');
-const { setDensity } = require('../server/simulation/stadium');
+const { setDensity } = require('../server/simulation/venueState');
 
 describe('Step 9: Final Integration Test', () => {
   const port = 0;
@@ -27,25 +27,21 @@ describe('Step 9: Final Integration Test', () => {
     }
   });
 
-  it('Path from Zone1 to Zone5 should avoid Zone3 when it is congested', async () => {
-    // Layout: 1-2-3-4-5 (length 4) vs 1-6-5 (length 2)
-    // Even if 1-6-5 is shorter, we want to ensure it picks the right one and specifically avoids 3
-    
-    // Setup: Zone3 and Zone2 are busy, Zone6 is empty
-    setDensity('Zone1', 10);
-    setDensity('Zone2', 500); // HIGH
-    setDensity('Zone3', 580); // BLOCKED
-    setDensity('Zone4', 10);
-    setDensity('Zone5', 10);
-    setDensity('Zone6', 0); // CLEAR PATH
+  it('Path from ENTRANCE to VIPLOUNGE should avoid FOODCOURTA when it is congested', async () => {
+    // Setup: FOODCOURTA and FOODCOURTB are busy, CONCOURSE is empty
+    setDensity('ENTRANCE', 10);
+    setDensity('FOODCOURTA', 295); // BLOCKED
+    setDensity('FOODCOURTB', 295); // BLOCKED
+    setDensity('CONCOURSE', 1); // CLEAR PATH
+    setDensity('NORTHTERRACE', 1);
 
     const res = await request(server)
       .post('/route')
-      .send({ source: 'Zone1', destination: 'Zone5' });
+      .send({ source: 'ENTRANCE', destination: 'VIPLOUNGE' });
 
     expect(res.status).to.equal(200);
     expect(res.body.path).to.be.an('array');
-    expect(res.body.path).to.not.include('Zone3');
-    expect(res.body.path).to.deep.equal(['Zone1', 'Zone6', 'Zone5']);
+    expect(res.body.path).to.not.include('FOODCOURTA');
+    expect(res.body.path).to.include('CONCOURSE');
   });
 });

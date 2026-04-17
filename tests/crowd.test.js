@@ -1,7 +1,7 @@
 const request = require('supertest');
 const { expect } = require('chai');
 const { server, startSimulations, stopSimulations } = require('../server/index');
-const { zones } = require('../server/simulation/stadium');
+const { zones } = require('../server/simulation/venueState');
 
 describe('Step 2: Crowd Simulation Engine', () => {
   const port = 0;

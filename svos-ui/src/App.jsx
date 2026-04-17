@@ -7,6 +7,11 @@ import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { io } from "socket.io-client";
 import { motion, AnimatePresence } from "framer-motion";
 import VenueFlow from "./components/VenueFlow";
+import LoginPage from "./pages/LoginPage";
+import { analytics, auth, db } from "./firebase";
+import { logEvent } from "firebase/analytics";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 // ─── SOCKET BRIDGE ────────────────────────────────────────────────────────────
 const BACKEND_URL =
@@ -99,6 +104,9 @@ export default function App() {
   const procLock = useRef(false); 
   const [buffer, setBuffer] = useState(null); 
   const pendingRoute = useRef(null);
+ 
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
   // ── DYNAMIC ASSETS Derived from Config
   const zoneMap = useMemo(() => {
@@ -129,29 +137,56 @@ export default function App() {
 
     socket.on("connect", () => setStatus("Live"));
     socket.on("connect_error", () => setStatus("Error"));
+ 
+    // Auth Listener
+    let unsubscribeAuth = () => {};
+    if (auth) {
+      unsubscribeAuth = onAuthStateChanged(auth, (u) => {
+        setUser(u);
+        setAuthLoading(false);
+      });
+    } else {
+      setAuthLoading(false);
+    }
+ 
     socket.on("crowd_update", (payload) => {
       if (demoPhase === DEMO_PHASES.PAUSED || demoPhase === DEMO_PHASES.THINKING || !payload?.zones) return; 
       const { zones: d, timestamp } = payload;
       if (timestamp < lastTs.current) return;
       lastTs.current = timestamp;
-
+ 
       if (procLock.current) {
         setBuffer({ type: "crowd", data: d });
         return;
       }
-
+ 
       procLock.current = true;
       setIsProcessing(true);
       setZones(d);
-      
+       
       const critical = Object.entries(d).find(([, z]) => (z.density / z.capacity) * 100 > 90);
       if (critical) {
         const [zId, zData] = critical;
         setSpikeAlert({ zone: zId, pct: ((zData.density / zData.capacity) * 100).toFixed(0) });
+ 
+        // Log Critical Surge to Analytics & Firestore
+        if (analytics && typeof analytics.logEvent === 'function') {
+          logEvent(analytics, "surge_detected", { zone: zId, pct: zData.density / zData.capacity });
+        }
+        
+        if (db) {
+          addDoc(collection(db, "incidents"), {
+            type: "SURGE",
+            zone: zId,
+            capacity_pct: (zData.density / zData.capacity),
+            timestamp: serverTimestamp()
+          }).catch(err => console.warn("Firestore Log Failed:", err));
+        }
+ 
         clearTimeout(spikeTimer.current);
         spikeTimer.current = setTimeout(() => setSpikeAlert(null), 4000);
       }
-
+ 
       setIsProcessing(false);
       procLock.current = false;
     });
@@ -193,8 +228,13 @@ export default function App() {
       }, 350);
     });
 
-    return () => socket.removeAllListeners();
-  }, [demoPhase, BACKEND_URL]); // dependency on backend url for config fetch
+    return () => {
+      socket.removeAllListeners();
+      unsubscribeAuth();
+      clearTimeout(spikeTimer.current);
+      clearTimeout(demoTimer.current);
+    };
+  }, [BACKEND_URL]); //config fetch and sockets dependent only on base URL
 
   // Buffer clearing effect — when lock releases, process latest pending update
   useEffect(() => {
@@ -205,11 +245,22 @@ export default function App() {
         setZones(next.data);
       } else if (next.type === "route") {
         setRouteData(next.data);
-        setDisplayRoute(next.data.path || []);
       }
     }
   }, [isProcessing, buffer]);
-
+ 
+  // Handle Sign Out
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      if (analytics && typeof analytics.logEvent === 'function') {
+        logEvent(analytics, "logout", { method: "manual" });
+      }
+    } catch (e) {
+      console.error("Sign Out Failure", e);
+    }
+  };
+ 
   const route = displayRoute;
 
   // FIX 5 — detect avoided zone for congestion highlighting (regex updated for bracketed IDs)
@@ -224,23 +275,33 @@ export default function App() {
   const advanceDemo = useCallback(() => {
     setDemoStep((prev) => {
       const next = prev === -1 ? 0 : prev + 1;
-      if (next >= DEMO_STEPS.length) return prev; // clamp at end
-      const step = DEMO_STEPS[next];
-      if (step.action === "spike") {
-        setSpiking(true);
-        socket.emit("trigger_spike");
-        // Auto-advance to step 2 after spike settles (2s)
-        clearTimeout(demoTimer.current);
-        demoTimer.current = setTimeout(() => {
-          setDemoStep(2);
-          // Auto-advance to resolved state after reroute window
-          demoTimer.current = setTimeout(() => setDemoStep(3), 8000);
-        }, 2000);
-        setTimeout(() => setSpiking(false), 10000);
-      }
+      if (next >= DEMO_STEPS.length) return prev;
       return next;
     });
   }, []);
+
+  // Handle Demo Step Side Effects
+  useEffect(() => {
+    if (demoStep < 0) return;
+    const step = DEMO_STEPS[demoStep];
+    
+    if (analytics && typeof analytics.logEvent === 'function') {
+      logEvent(analytics, "demo_step", { step_id: demoStep, title: step.title });
+    }
+
+    if (step.action === "spike") {
+      setSpiking(true);
+      socket.emit("trigger_spike");
+      
+      clearTimeout(demoTimer.current);
+      demoTimer.current = setTimeout(() => {
+        setDemoStep(2);
+        demoTimer.current = setTimeout(() => setDemoStep(3), 8000);
+      }, 2000);
+      
+      setTimeout(() => setSpiking(false), 10000);
+    }
+  }, [demoStep]);
 
   // Build active‑route edge set for quick lookup
   const activeEdgeSet = useMemo(() => {
@@ -249,13 +310,26 @@ export default function App() {
     return s;
   }, [route]);
 
-  if (!config) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-950 text-blue-400 uppercase tracking-[0.4em] font-black animate-pulse">
-        Initializing Venue Config…
-      </div>
-    );
-  }
+      {/* AUTHENTICATION GATE */}
+      if (!user && !authLoading) {
+        return <LoginPage onLoginSuccess={() => {}} />;
+      }
+
+      if (authLoading) {
+        return (
+          <div className="flex items-center justify-center min-h-screen bg-slate-950 text-blue-400 uppercase tracking-[0.4em] font-black animate-pulse">
+            Verifying Clearance…
+          </div>
+        );
+      }
+
+      if (!config) {
+        return (
+          <div className="flex items-center justify-center min-h-screen bg-slate-950 text-blue-400 uppercase tracking-[0.4em] font-black animate-pulse">
+            Initializing Venue Config…
+          </div>
+        );
+      }
 
   return (
     <div className="flex flex-col h-screen bg-slate-950 text-slate-100 font-inter select-none overflow-hidden selection:bg-blue-500/30">
@@ -272,26 +346,38 @@ export default function App() {
               {status === "Live" ? "Synchronized" : "Offline"}
             </span>
           </div>
+          {user && (
+            <motion.div 
+              initial={{ scale: 0 }} animate={{ scale: 1 }}
+              className="flex items-center gap-1.5 bg-blue-500/10 px-3 py-1 rounded-lg border border-blue-500/30"
+            >
+              <div className="w-1.5 h-1.5 rounded-full bg-blue-400 shadow-[0_0_8px_#60a5fa]" />
+              <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Clearance: Level 3</span>
+            </motion.div>
+          )}
         </div>
         <div className="flex items-center gap-4">
           {/* DEMO MODE LAUNCHER */}
           <button
             onClick={() => setDemoStep(demoStep >= 0 ? -1 : 0)}
+            aria-label={demoStep >= 0 ? "Demo is active" : "Start stadium simulation demo"}
             className={`flex items-center gap-2 px-4 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-widest
-              transition-all duration-300 active:scale-95 ${
+              transition-all duration-300 active:scale-95 focus:ring-2 focus:ring-emerald-500/50 outline-none ${
               demoStep >= 0
                 ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/20"
                 : "bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-white cursor-pointer"
             }`}
           >
-            <span className={`w-1.5 h-1.5 rounded-full ${demoStep >= 0 ? "bg-emerald-500 animate-pulse" : "bg-slate-500"}`} />
+            <span className={`w-1.5 h-1.5 rounded-full ${demoStep >= 0 ? "bg-emerald-500 animate-pulse" : "bg-slate-500"}`} aria-hidden="true" />
             {demoStep >= 0 ? "Demo Active" : "Start Demo"}
           </button>
           
           <button
             onClick={() => setHeatmapActive(!heatmapActive)}
+            aria-pressed={heatmapActive}
+            aria-label="Toggle crowd density heatmap"
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-widest
-              transition-all duration-300 active:scale-95 ${
+              transition-all duration-300 active:scale-95 focus:ring-2 focus:ring-orange-500/50 outline-none ${
               heatmapActive
                 ? "bg-orange-500/10 border-orange-500/40 text-orange-400"
                 : "bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-white cursor-pointer"
@@ -299,6 +385,15 @@ export default function App() {
           >
             Heatmap
           </button>
+ 
+          {/* SECURITY CLEARANCE TOGGLE */}
+          <button
+            onClick={handleSignOut}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 text-rose-400 text-[10px] font-black uppercase tracking-widest transition-all hover:bg-rose-500/20 active:scale-95"
+          >
+            Terminal Exit
+          </button>
+           
           <span className="text-[10px] font-black text-white/20 uppercase tracking-widest hidden md:block">
             Neural Graph v4 · Real-Time
           </span>
@@ -428,7 +523,9 @@ export default function App() {
         </div>
 
         {/* RIGHT — TELEMETRY PANEL */}
-        <div className="w-[260px] p-4 flex flex-col gap-4 border-l border-white/5 bg-slate-900/40 backdrop-blur-3xl shrink-0 shadow-[-20px_0_60px_rgba(0,0,0,0.4)] z-50">
+        <aside 
+          aria-label="Real-time venue telemetry"
+          className="w-[260px] p-4 flex flex-col gap-4 border-l border-white/5 bg-slate-900/40 backdrop-blur-3xl shrink-0 shadow-[-20px_0_60px_rgba(0,0,0,0.4)] z-50">
 
           {/* LIVE TRAJECTORY */}
           <section className="flex-1 flex flex-col min-h-0 bg-black/20 rounded-2xl p-5 border border-white/5">
@@ -465,16 +562,17 @@ export default function App() {
               <div className="flex gap-2">
                 <button
                   onClick={() => setDemoPhase(demoPhase === DEMO_PHASES.PAUSED ? DEMO_PHASES.RUNNING : DEMO_PHASES.PAUSED)}
-                  className={`flex-1 py-2.5 rounded-xl border text-[11px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 ${
+                  aria-label={demoPhase === DEMO_PHASES.PAUSED ? "Resume simulation" : "Pause simulation"}
+                  className={`flex-1 py-2.5 rounded-xl border text-[11px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 focus:ring-2 focus:ring-blue-500/40 outline-none ${
                     demoPhase === DEMO_PHASES.PAUSED 
                       ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" 
                       : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10 shadow-lg"
                   }`}
                 >
                   {demoPhase === DEMO_PHASES.PAUSED ? (
-                    <><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Resume</>
+                    <><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg> Resume</>
                   ) : (
-                    <><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg> Pause</>
+                    <><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg> Pause</>
                   )}
                 </button>
                 
@@ -483,10 +581,11 @@ export default function App() {
                     setDemoPhase(DEMO_PHASES.RUNNING);
                     setSpiking(false);
                   }}
-                  className="px-3 py-2.5 rounded-xl border border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 active:scale-95"
+                  aria-label="Reset simulation to default state"
+                  className="px-3 py-2.5 rounded-xl border border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 active:scale-95 focus:ring-2 focus:ring-blue-500/40 outline-none"
                   title="Reset Demo"
                 >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
                 </button>
               </div>
               
@@ -537,7 +636,7 @@ export default function App() {
               <span className="text-base font-black text-emerald-400 shadow-emerald-500">PEAK</span>
             </div>
           </div>
-        </div>
+        </aside>
       </main>
 
       {/* FIX 3 — CRITICAL SPIKE ALERT OVERLAY */}
@@ -548,6 +647,8 @@ export default function App() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -60 }}
             transition={{ type: "spring", stiffness: 300, damping: 24 }}
+            aria-live="assertive"
+            aria-atomic="true"
             className="fixed top-[72px] left-1/2 -translate-x-1/2 z-[200] flex items-center gap-4
               bg-red-950/95 border-2 border-red-500 rounded-2xl px-6 py-4 shadow-[0_0_60px_rgba(239,68,68,0.4)]
               backdrop-blur-xl pointer-events-none"

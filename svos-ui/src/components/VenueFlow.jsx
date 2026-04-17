@@ -20,12 +20,16 @@ const VenueNode = ({ data }) => {
   };
 
   return (
-    <div className="relative group">
-      <Handle type="target" position={Position.Top} className="opacity-0" />
-      <Handle type="source" position={Position.Bottom} className="opacity-0" />
-      <Handle type="target" position={Position.Left} className="opacity-0" />
-      <Handle type="source" position={Position.Right} className="opacity-0" />
-
+    <div 
+      className="relative group"
+      role="region"
+      aria-label={`Zone ${zoneName}, ${pct.toFixed(0)}% occupancy`}
+    >
+      <Handle type="target" position={Position.Top} className="opacity-0" aria-hidden="true" />
+      <Handle type="source" position={Position.Bottom} className="opacity-0" aria-hidden="true" />
+      <Handle type="target" position={Position.Left} className="opacity-0" aria-hidden="true" />
+      <Handle type="source" position={Position.Right} className="opacity-0" aria-hidden="true" />
+ 
       <motion.div
         animate={{
           scale: isInRoute ? 1.08 : isBeingAvoided ? [1, 1.1, 1] : isCritical ? [1, 1.05, 1] : 1,
@@ -41,12 +45,15 @@ const VenueNode = ({ data }) => {
           ${isBeingAvoided ? "ring-2 ring-rose-500 shadow-[0_0_40px_rgba(244,63,94,0.6)] border-rose-500" : ""}
         `}
       >
-        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40 mb-1">{id}</span>
+        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40 mb-1" aria-hidden="true">{id}</span>
         <h3 className="text-[12px] font-black text-white text-center px-1 uppercase leading-tight truncate w-full tracking-wide">
           {zoneName}
         </h3>
-        <div className="text-[24px] font-black mt-0.5 text-white leading-none tabular-nums drop-shadow-lg">
-          {pct.toFixed(0)}<span className="text-xs opacity-50 ml-0.5">%</span>
+        <div 
+          className="text-[24px] font-black mt-0.5 text-white leading-none tabular-nums drop-shadow-lg"
+          aria-label={`${pct.toFixed(0)} percent`}
+        >
+          {pct.toFixed(0)}<span className="text-xs opacity-50 ml-0.5" aria-hidden="true">%</span>
         </div>
       </motion.div>
     </div>
@@ -201,7 +208,11 @@ export default function VenueFlow({ config, zones, route, avoidedZone, naivePath
 
     // 2. Add Venue Nodes
     Object.entries(config.zones).forEach(([id, z]) => {
-      const pct = zones[id] ? (zones[id].density / zones[id].capacity) * 100 : 0;
+      let pct = 0;
+      if (zones[id] && zones[id].capacity > 0) {
+        pct = (zones[id].density / zones[id].capacity) * 100;
+      }
+      if (isNaN(pct)) pct = 0;
       base.push({
         id,
         type: 'venueNode',
@@ -237,11 +248,15 @@ export default function VenueFlow({ config, zones, route, avoidedZone, naivePath
   }, [config, route, naivePath, zones]);
 
   return (
-    <div className="w-full h-full relative">
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
+    <div 
+      className="w-full h-full relative"
+      role="application"
+      aria-label="Interactive arena map showing crowd density and navigation routes"
+    >
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0" aria-hidden="true">
          <span className="text-[140px] font-black text-white/[0.03] uppercase tracking-[0.25em] select-none">ARENA</span>
       </div>
-      <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} fitView minZoom={0.2} maxZoom={2} style={{ background: 'transparent' }} colorMode="dark">
+      <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} fitView minZoom={0.2} maxZoom={2} style={{ background: 'transparent' }}>
         <Background variant="dots" gap={30} size={1} color="rgba(255, 255, 255, 0.05)" />
       </ReactFlow>
     </div>

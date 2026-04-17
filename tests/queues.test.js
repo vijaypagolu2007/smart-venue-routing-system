@@ -1,7 +1,7 @@
 const request = require('supertest');
 const { expect } = require('chai');
 const { server } = require('../server/index');
-const { setDensity } = require('../server/simulation/stadium');
+const { setDensity } = require('../server/simulation/venueState');
 
 describe('Step 4: Queue Estimation System', () => {
   const port = 0;

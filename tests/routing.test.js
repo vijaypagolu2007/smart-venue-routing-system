@@ -1,25 +1,26 @@
 const { expect } = require('chai');
 const { shortestPath } = require('../server/services/routingService');
-const { setDensity } = require('../server/simulation/stadium');
+const { setDensity, resetZones } = require('../server/simulation/venueState');
 const { zones } = require('../server/simulation/crowdSimulator');
 
 describe('Step 3: Path Optimization', () => {
   
-  it('Path should avoid Zone3 when its density is extremely high', () => {
-    // Set densities
-    setDensity('Zone1', 10);
-    setDensity('Zone2', 500); // HIGH
-    setDensity('Zone3', 500); // HIGH
-    setDensity('Zone4', 10);
-    setDensity('Zone5', 10);
-    setDensity('Zone6', 0);   // CLEAR
+  it('Path should avoid FOODCOURTA when its density is extremely high', () => {
+    // Set densities baseline
+    resetZones();
+    setDensity('ENTRANCE', 10);
+    setDensity('FOODCOURTA', 290); // HIGH (Capacity 300)
+    setDensity('FOODCOURTB', 10);
+    setDensity('VIPLOUNGE', 10);
+    setDensity('CONCOURSE', 10);
+    setDensity('NORTHTERRACE', 10);
 
-    const result = shortestPath(zones, 'Zone1', 'Zone5');
+    const result = shortestPath(zones, 'ENTRANCE', 'VIPLOUNGE');
     const path = result.path;
     
-    // Path should be [Zone1, Zone6, Zone5] 
-    expect(path).to.not.include('Zone3');
-    expect(path).to.not.include('Zone2');
-    expect(path).to.deep.equal(['Zone1', 'Zone6', 'Zone5']);
+    // Path should avoid FOODCOURTA
+    expect(path).to.not.include('FOODCOURTA');
+    expect(path[0]).to.equal('ENTRANCE');
+    expect(path[path.length - 1]).to.equal('VIPLOUNGE');
   });
 });

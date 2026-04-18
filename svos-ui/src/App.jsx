@@ -13,9 +13,8 @@ import { io } from "socket.io-client";
 import { motion, AnimatePresence } from "framer-motion";
 import VenueFlow from "./components/VenueFlow";
 import LoginPage from "./pages/LoginPage";
-import { analytics, auth, db } from "./firebase";
+import { analytics, auth, db, onAuthStateChanged, signOut } from "./firebase";
 import { logEvent } from "firebase/analytics";
-import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 // ─── SOCKET BRIDGE ────────────────────────────────────────────────────────────
@@ -151,6 +150,7 @@ export default function App() {
         setAuthLoading(false);
       });
     } else {
+      console.warn("Auth service not available - proceeding to login gate");
       setAuthLoading(false);
     }
  
@@ -209,7 +209,7 @@ export default function App() {
     socket.on("auto_route_update", (payload) => {
       if (!payload || !payload.path) return;
       if (demoPhase === DEMO_PHASES.PAUSED || demoPhase === DEMO_PHASES.THINKING) return; 
-      const { timestamp, path, naivePath } = payload;
+      const { timestamp, path } = payload;
       if (timestamp < lastTs.current) return;
       
       if (procLock.current) {
@@ -308,12 +308,7 @@ export default function App() {
     }
   }, [demoStep]);
 
-  // Build active‑route edge set for quick lookup
-  const activeEdgeSet = useMemo(() => {
-    const s = new Set();
-    for (let i = 0; i < route.length - 1; i++) s.add(`${route[i]}-${route[i + 1]}`);
-    return s;
-  }, [route]);
+  // activeEdgeSet removed as it was unused
 
       {/* AUTHENTICATION GATE */}
       if (!user && !authLoading) {

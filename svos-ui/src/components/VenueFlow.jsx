@@ -66,12 +66,13 @@ const HeatmapNode = ({ data }) => {
   const glowColor = pressure > 80 ? "rgba(244,63,94,0.4)" : 
                     pressure > 60 ? "rgba(245,158,11,0.25)" : 
                     "rgba(56,189,248,0.15)";
+  const randomDuration = useMemo(() => 3 + Math.random() * 2, []);
 
   return (
     <div className="flex items-center justify-center pointer-events-none" style={{ transform: "translate(-50%, -50%)" }}>
       <motion.div
         animate={{ opacity: [0.3, 0.6, 0.3], scale: [1, 1.3, 1] }}
-        transition={{ repeat: Infinity, duration: 3 + Math.random() * 2 }}
+        transition={{ repeat: Infinity, duration: randomDuration }}
         style={{
           width: 320,
           height: 240,

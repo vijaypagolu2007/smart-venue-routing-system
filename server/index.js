@@ -258,17 +258,35 @@ const startSimulations = () => {
   }, 4000);
 };
 
-// Serve static files from the React app
-app.use(express.static(path.join(__dirname, "../svos-ui/dist")));
+// Serve static files from the React app (excluding index.html to allow injection)
+app.use(express.static(path.join(__dirname, "../svos-ui/dist"), { index: false }));
 
 // The "catchall" handler: for any request that doesn't
 // match a defined route, send back React's index.html file.
 app.use((req, res, next) => {
   const filePath = path.join(__dirname, "../svos-ui/dist/index.html");
   if (fs.existsSync(filePath)) {
-    res.sendFile(filePath);
+    // RUNTIME CONFIG INJECTION:
+    // Read the index.html and inject environment variables from the server 
+    // into the window object. This ensures the frontend has access to 
+    // variables even if they weren't baked in at build-time.
+    let html = fs.readFileSync(filePath, 'utf8');
+    
+    const config = {
+      VITE_FIREBASE_API_KEY: process.env.VITE_FIREBASE_API_KEY,
+      VITE_FIREBASE_AUTH_DOMAIN: process.env.VITE_FIREBASE_AUTH_DOMAIN,
+      VITE_FIREBASE_PROJECT_ID: process.env.VITE_FIREBASE_PROJECT_ID,
+      VITE_FIREBASE_STORAGE_BUCKET: process.env.VITE_FIREBASE_STORAGE_BUCKET,
+      VITE_FIREBASE_MESSAGING_SENDER_ID: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+      VITE_FIREBASE_APP_ID: process.env.VITE_FIREBASE_APP_ID,
+      VITE_FIREBASE_MEASUREMENT_ID: process.env.VITE_FIREBASE_MEASUREMENT_ID,
+    };
+
+    const injectionScript = `<script>window.SVOS_RUNTIME_CONFIG = ${JSON.stringify(config)}; console.log("RUNTIME CONFIG INJECTED");</script>`;
+    html = html.replace('</title>', `</title>${injectionScript}`);
+    
+    res.send(html);
   } else {
-    // If frontend hasn't been built yet, just show a message or move to next
     next();
   }
 });

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { auth, googleProvider } from '../firebase';
 import { signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 
@@ -14,6 +14,7 @@ const LoginPage = ({ onLoginSuccess }) => {
     setLoading(true);
     setError(null);
     try {
+      if (!auth) throw new Error("Authentication service is currently unavailable. Please check your configuration.");
       if (!googleProvider) throw new Error("Google Provider not configured");
       await signInWithPopup(auth, googleProvider);
       onLoginSuccess();
@@ -29,6 +30,7 @@ const LoginPage = ({ onLoginSuccess }) => {
     setLoading(true);
     setError(null);
     try {
+      if (!auth) throw new Error("Authentication service is currently unavailable.");
       if (isRegistering) {
         await createUserWithEmailAndPassword(auth, email, password);
       } else {

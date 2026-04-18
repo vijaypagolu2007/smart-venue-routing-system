@@ -9,13 +9,13 @@ import { getFirestore } from "firebase/firestore";
 const rc = window.SVOS_RUNTIME_CONFIG || {};
 
 const firebaseConfig = {
-  apiKey: rc.VITE_FIREBASE_API_KEY || import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSy" + "DwIbK9zWWqYnHpQkMgmnex-zm2uVzWSiY",
-  authDomain: rc.VITE_FIREBASE_AUTH_DOMAIN || import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "svos-ai-venue-2026.firebaseapp.com",
-  projectId: rc.VITE_FIREBASE_PROJECT_ID || import.meta.env.VITE_FIREBASE_PROJECT_ID || "svos-ai-venue-2026",
-  storageBucket: rc.VITE_FIREBASE_STORAGE_BUCKET || import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "svos-ai-venue-2026.firebasestorage.app",
-  messagingSenderId: rc.VITE_FIREBASE_MESSAGING_SENDER_ID || import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "131590729249",
-  appId: rc.VITE_FIREBASE_APP_ID || import.meta.env.VITE_FIREBASE_APP_ID || "1:131590729249:web:11633b0363bfcea3e4bd60",
-  measurementId: rc.VITE_FIREBASE_MEASUREMENT_ID || import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-EHRDLRN90N"
+  apiKey: rc.VITE_FIREBASE_API_KEY || import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: rc.VITE_FIREBASE_AUTH_DOMAIN || import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: rc.VITE_FIREBASE_PROJECT_ID || import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: rc.VITE_FIREBASE_STORAGE_BUCKET || import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: rc.VITE_FIREBASE_MESSAGING_SENDER_ID || import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: rc.VITE_FIREBASE_APP_ID || import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: rc.VITE_FIREBASE_MEASUREMENT_ID || import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase with singleton pattern

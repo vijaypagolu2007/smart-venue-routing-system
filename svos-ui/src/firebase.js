@@ -18,10 +18,14 @@ const firebaseConfig = {
 
 // Initialize Firebase with singleton pattern
 let app;
-try {
-  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-} catch (e) {
-  console.error("Firebase Initialization Failed (Possible invalid config):", e);
+if (firebaseConfig.apiKey) {
+  try {
+    app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+  } catch (e) {
+    console.error("Firebase Initialization Failed (Possible invalid config):", e);
+  }
+} else {
+  console.warn("Firebase API Key missing - running in mock mode");
 }
 
 // Initialize Services with safety guards

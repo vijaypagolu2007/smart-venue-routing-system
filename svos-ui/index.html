@@ -12,7 +12,23 @@
         INITIALIZING TACTICAL INTERFACE...
       </div>
     </div>
-    <script>console.log("SVOS SOURCE INDEX LOADED");</script>
+    <script>
+      window.onerror = function(msg, url, line, col, error) {
+        var div = document.createElement('div');
+        div.style.color = 'red';
+        div.style.position = 'fixed';
+        div.style.top = '0';
+        div.style.background = 'white';
+        div.style.zIndex = '9999';
+        div.innerHTML = 'FATAL ERROR: ' + msg + ' at ' + url + ':' + line;
+        document.body.appendChild(div);
+      };
+      window.addEventListener('error', function(e) {
+        if (e.target.tagName === 'SCRIPT') {
+          console.error('SCRIPT LOAD FAILURE:', e.target.src);
+        }
+      }, true);
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

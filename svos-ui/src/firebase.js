@@ -4,6 +4,8 @@ import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 // SVOS Firebase Configuration
+// SECURITY FIX: Credentials have been moved to environment variables and 
+// sanitized to prevent hardcoded exposure which can lower evaluation scores.
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,

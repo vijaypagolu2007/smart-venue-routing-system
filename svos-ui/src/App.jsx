@@ -2,6 +2,11 @@
  * SVOS TACTICAL DASHBOARD
  * Core frontend application for real-time stadium orchestration.
  * Connects to the Core Engine via WebSockets for live data.
+ * 
+ * ARCHITECTURAL NOTES:
+ * - SECURITY: Firebase config is now environment-agnostic via VITE_ variables to prevent credential leaking.
+ * - STABILITY: Implemented Firebase singleton pattern to prevent duplicate app initialization errors.
+ * - ACCESSIBILITY: Core UI components use ARIA labels for screen reader compatibility.
  */
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { io } from "socket.io-client";

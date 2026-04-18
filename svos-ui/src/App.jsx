@@ -738,8 +738,6 @@ export default function App() {
         })()}
       </AnimatePresence>
 
-      {/* Grain overlay */}
-      <div className="fixed inset-0 pointer-events-none opacity-[0.03] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] z-[100]" />
     </div>
   );
 }

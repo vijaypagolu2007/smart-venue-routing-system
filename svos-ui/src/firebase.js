@@ -1,23 +1,23 @@
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 // SVOS Firebase Configuration
-// Replace these with your actual Firebase project credentials from the Firebase Console
 const firebaseConfig = {
-  apiKey: "AIzaSyDwIbK9zWWqYnHpQkMgmnex-zm2uVzWSiY",
-  authDomain: "svos-ai-venue-2026.firebaseapp.com",
-  projectId: "svos-ai-venue-2026",
-  storageBucket: "svos-ai-venue-2026.firebasestorage.app",
-  messagingSenderId: "131590729249",
-  appId: "1:131590729249:web:11633b0363bfcea3e4bd60"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
-// Initialize Firebase
+// Initialize Firebase with singleton pattern
 let app;
 try {
-  app = initializeApp(firebaseConfig);
+  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 } catch (e) {
   console.error("Firebase Initialization Failed (Possible invalid config):", e);
 }
